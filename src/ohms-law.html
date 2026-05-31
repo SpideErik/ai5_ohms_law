@@ -117,10 +117,7 @@
   <!-- ── График ── -->
   <h2>График I(U) при фиксированном R</h2>
   <canvas id="graph" width="536" height="240"></canvas>
-  <div class="axis-hint">
-    <span>← U, В (0 … 24)</span>
-    <span>I, А →</span>
-  </div>
+
 </div>
 
 <script>
@@ -192,20 +189,35 @@
     ctx.lineTo(padL + plotW, padT + plotH); // ось X (U)
     ctx.stroke();
 
-    // ── Подписи оси X ──
+    // ── Подписи оси X (числа + название) ──
     ctx.fillStyle  = '#555';
     ctx.font       = '11px Arial';
     ctx.textAlign  = 'center';
     [0, 6, 12, 18, 24].forEach(u => {
       ctx.fillText(u, xPx(u), padT + plotH + 18);
     });
+    // Подпись оси X по центру снизу
+    ctx.font = 'bold 12px Arial';
+    ctx.fillStyle = '#333';
+    ctx.fillText('U, В', padL + plotW / 2, padT + plotH + 34);
 
-    // ── Подписи оси Y ──
+    // ── Подписи оси Y (числа + название) ──
+    ctx.font = '11px Arial';
+    ctx.fillStyle = '#555';
     ctx.textAlign = 'right';
     for (let k = 0; k <= 4; k++) {
       const val = (Imax / 4) * k;
       ctx.fillText(val.toFixed(2), padL - 6, yPx(val) + 4);
     }
+    // Подпись оси Y — повёрнутый текст слева
+    ctx.save();
+    ctx.translate(13, padT + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.font = 'bold 12px Arial';
+    ctx.fillStyle = '#333';
+    ctx.textAlign = 'center';
+    ctx.fillText('I, А', 0, 0);
+    ctx.restore();
 
     // ── Линия графика I = U / R ──
     ctx.beginPath();
