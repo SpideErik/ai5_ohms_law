@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Закон Ома — симулятор</title>
+  <style>
+    /* ── Общий сброс и шрифт ── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      display: flex;
+      justify-content: center;
+      padding: 30px 16px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.12);
+      padding: 32px;
+      max-width: 600px;
+      width: 100%;
+    }
+
+    h1 { font-size: 1.5rem; color: #1a1a2e; margin-bottom: 6px; }
+    .subtitle { color: #666; font-size: .9rem; margin-bottom: 28px; }
+
+    /* ── Ползунки ── */
+    .slider-group { margin-bottom: 22px; }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+    .slider-label span:first-child { font-weight: bold; color: #333; }
+    .slider-label .val {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: #2563eb;
+      min-width: 70px;
+      text-align: right;
+    }
+
+    input[type=range] {
+      width: 100%;
+      accent-color: #2563eb;
+      cursor: pointer;
+      height: 6px;
+    }
+
+    /* ── Результат ── */
+    .result-box {
+      background: #eff6ff;
+      border: 2px solid #2563eb;
+      border-radius: 10px;
+      padding: 18px 24px;
+      margin: 24px 0;
+      text-align: center;
+    }
+    .formula { font-size: 1rem; color: #555; margin-bottom: 8px; }
+    .current-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #1d4ed8;
+    }
+    .current-value span { font-size: 1rem; font-weight: normal; color: #555; }
+
+    /* ── График ── */
+    h2 { font-size: 1rem; color: #333; margin-bottom: 8px; }
+    canvas {
+      display: block;
+      background: #fafafa;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+    .axis-hint {
+      display: flex;
+      justify-content: space-between;
+      font-size: .75rem;
+      color: #999;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <h1>⚡ Закон Ома</h1>
+  <p class="subtitle">Передвигай ползунки — наблюдай, как меняется ток</p>
+
+  <!-- ── Ползунок напряжения ── -->
+  <div class="slider-group">
+    <div class="slider-label">
+      <span>Напряжение U</span>
+      <span class="val" id="labelU">12 В</span>
+    </div>
+    <input type="range" id="sliderU" min="0" max="24" value="12" step="0.1">
+  </div>
+
+  <!-- ── Ползунок сопротивления ── -->
+  <div class="slider-group">
+    <div class="slider-label">
+      <span>Сопротивление R</span>
+      <span class="val" id="labelR">10 Ом</span>
+    </div>
+    <input type="range" id="sliderR" min="1" max="100" value="10" step="1">
+  </div>
+
+  <!-- ── Результат ── -->
+  <div class="result-box">
+    <div class="formula">I = U / R</div>
+    <div class="current-value" id="currentI">1.200 <span>А</span></div>
+  </div>
+
+  <!-- ── График ── -->
+  <h2>График I(U) при фиксированном R</h2>
+  <canvas id="graph" width="536" height="240"></canvas>
+  <div class="axis-hint">
+    <span>← U, В (0 … 24)</span>
+    <span>I, А →</span>
+  </div>
+</div>
+
+<script>
+  // ── 1. Получаем элементы страницы ──────────────────────────
+  const sliderU  = document.getElementById('sliderU');
+  const sliderR  = document.getElementById('sliderR');
+  const labelU   = document.getElementById('labelU');
+  const labelR   = document.getElementById('labelR');
+  const currentI = document.getElementById('currentI');
+  const canvas   = document.getElementById('graph');
+  const ctx      = canvas.getContext('2d');   // инструмент рисования
+
+  // ── 2. Главная функция — вызывается при каждом движении ────
+  function update() {
+    // Считываем значения ползунков (строки → числа)
+    const U = parseFloat(sliderU.value);
+    const R = parseFloat(sliderR.value);
+
+    // Закон Ома: I = U / R
+    const I = U / R;
+
+    // Обновляем подписи
+    labelU.textContent  = U.toFixed(1) + ' В';
+    labelR.textContent  = R.toFixed(0) + ' Ом';
+    currentI.innerHTML  = I.toFixed(3) + ' <span>А</span>';
+
+    // Перерисовываем график
+    drawGraph(R, U);
+  }
+
+  // ── 3. Функция рисования графика ───────────────────────────
+  function drawGraph(R, currentU) {
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // Отступы для осей
+    const padL = 50, padR = 20, padT = 20, padB = 36;
+    const plotW = w - padL - padR;
+    const plotH = h - padT - padB;
+
+    // Максимальное значение тока (при U=24 и текущем R)
+    const Imax = 24 / R;
+
+    // Вспомогательные функции: перевод физических значений в пиксели
+    function xPx(u) { return padL + (u / 24) * plotW; }
+    function yPx(i) { return padT + plotH - (i / Imax) * plotH; }
+
+    // Очищаем холст
+    ctx.clearRect(0, 0, w, h);
+
+    // ── Сетка ──
+    ctx.strokeStyle = '#e5e7eb';
+    ctx.lineWidth   = 1;
+    for (let i = 1; i <= 4; i++) {
+      const y = padT + (plotH / 4) * i;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+    }
+    for (let u = 0; u <= 24; u += 6) {
+      const x = xPx(u);
+      ctx.beginPath(); ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH); ctx.stroke();
+    }
+
+    // ── Оси ──
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT);
+    ctx.lineTo(padL, padT + plotH);   // ось Y (I)
+    ctx.lineTo(padL + plotW, padT + plotH); // ось X (U)
+    ctx.stroke();
+
+    // ── Подписи оси X ──
+    ctx.fillStyle  = '#555';
+    ctx.font       = '11px Arial';
+    ctx.textAlign  = 'center';
+    [0, 6, 12, 18, 24].forEach(u => {
+      ctx.fillText(u, xPx(u), padT + plotH + 18);
+    });
+
+    // ── Подписи оси Y ──
+    ctx.textAlign = 'right';
+    for (let k = 0; k <= 4; k++) {
+      const val = (Imax / 4) * k;
+      ctx.fillText(val.toFixed(2), padL - 6, yPx(val) + 4);
+    }
+
+    // ── Линия графика I = U / R ──
+    ctx.beginPath();
+    ctx.strokeStyle = '#2563eb';
+    ctx.lineWidth   = 2.5;
+    ctx.moveTo(xPx(0), yPx(0));        // начало в точке (0, 0)
+    ctx.lineTo(xPx(24), yPx(24 / R));  // конец при U = 24
+    ctx.stroke();
+
+    // ── Текущая точка (U, I) ──
+    const cx = xPx(currentU);
+    const cy = yPx(currentU / R);
+
+    // Пунктирные проекции на оси
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, padT + plotH); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(padL, cy);         ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Жёлтая точка
+    ctx.beginPath();
+    ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+    ctx.fillStyle   = '#f59e0b';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+  }
+
+  // ── 4. Навешиваем обработчики событий на ползунки ──────────
+  sliderU.addEventListener('input', update);
+  sliderR.addEventListener('input', update);
+
+  // ── 5. Первый вызов — чтобы страница не была пустой ────────
+  update();
+</script>
+</body>
+</html>
